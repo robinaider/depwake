@@ -21,6 +21,8 @@ class Item:
     risk: str            # major | minor | patch | same | unknown
     note: str = ""       # why this row needs attention (or why we can't tell)
     advisories: list[Advisory] = field(default_factory=list)
+    reachable: bool | None = None  # None = unknown; unknown != safe
+    reach_note: str = ""           # evidence, e.g. "imported as 'yaml' in 3 file(s)"
 
     def worst_severity(self) -> str:
         if not self.advisories:
@@ -34,7 +36,8 @@ class Item:
                 "current_source": self.dep.current_source,
                 "latest": self.latest, "url": self.url,
                 "risk": self.risk, "note": self.note,
-                "advisories": [a.to_dict() for a in self.advisories]}
+                "advisories": [a.to_dict() for a in self.advisories],
+                "reachable": self.reachable, "reach_note": self.reach_note}
 
 
 @dataclass
@@ -81,7 +84,8 @@ def build(deps: list[Dep],
                                      dict[tuple[str, str], list[Advisory]]]
           | None = fetch_advisories,
           with_advisories: bool = True,
-          min_severity: str | None = None) -> Plan:
+          min_severity: str | None = None,
+          reach_root: str | None = None) -> Plan:
     items: list[Item] = []
     for dep in deps:
         if dep.current is None:
@@ -134,4 +138,36 @@ def build(deps: list[Dep],
         if hidden:
             plan.notes.append(f"{hidden} advisor{'y' if hidden == 1 else 'ies'} "
                               f"below --min-severity {min_severity} hidden")
+    if reach_root is not None:
+        annotate_reachability(plan, reach_root)
     return plan
+
+
+def annotate_reachability(plan: Plan, root: str) -> None:
+    """Flag advisory items by importability. Opt-in; never hides advisories.
+
+    Reachable (imported) advisories sort first in triage; unreachable ones
+    keep their 🔒 but get a "can wait" note; unknown ones are explicit that
+    dynamic imports are a blind spot.
+    """
+    from .reach import collect, lookup
+
+    imported = collect(root)
+    reached = unreached = 0
+    for item in plan.items:
+        if not item.advisories:
+            continue
+        ok, evidence = lookup(item.dep.name, item.dep.ecosystem, imported)
+        item.reachable = ok
+        item.reach_note = evidence
+        if ok is True:
+            reached += 1
+            item.note = f"🎯 reachable ({evidence}) — upgrade first. {item.note}".strip()
+        elif ok is False:
+            unreached += 1
+            item.note = (f"{item.note} ({evidence} — still patch, "
+                         "but it can wait behind reachable ones.)".strip())
+    if reached or unreached:
+        plan.notes.append(
+            f"reachability: {reached} reachable, {unreached} unreached in source "
+            f"(dynamic imports invisible — unknown != safe)")

@@ -104,7 +104,8 @@ def cmd_plan(args: argparse.Namespace) -> int:
     t0 = time.time()
     plan = build(deps, fetcher=_version_fetcher(args), timeout=args.timeout,
                  advisory_fetcher=_advisory_fetcher(args),
-                 min_severity=args.min_severity)
+                 min_severity=args.min_severity,
+                 reach_root=args.root if getattr(args, "reach", False) else None)
     plan.notes.extend(notes)
     _say(args, f"done in {time.time() - t0:.1f}s")
     if args.format == "json":
@@ -202,6 +203,8 @@ def build_parser() -> argparse.ArgumentParser:
     pl.add_argument("-o", "--output", default=None, help="Write report to file instead of stdout.")
     pl.add_argument("--min-severity", choices=["Critical", "High", "Medium", "Low"], default=None,
                     help="Only attach advisories at/above this severity (Unscored always shown).")
+    pl.add_argument("--reach", action="store_true",
+                    help="Scan source for advisory reachability (who imports what).")
     pl.set_defaults(func=cmd_plan)
 
     ap = sub.add_parser("apply", help="Auto-bump patch (and optionally minor). Never major.")

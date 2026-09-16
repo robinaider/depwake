@@ -285,5 +285,75 @@ class TestSmoothUX(unittest.TestCase):
             cli_mod.fetch = orig
 
 
+class TestReach(unittest.TestCase):
+    def _proj(self, d: Path) -> Path:
+        (d / "app.py").write_text("import yaml\nimport requests\n")
+        (d / "sub").mkdir()
+        (d / "sub" / "x.py").write_text("from dateutil import parser\n")
+        (d / "app.js").write_text(
+            "const _ = require('lodash');\n"
+            "import axios from 'axios';\n"
+            "import x from './local';\n")
+        return d
+
+    def test_collect(self):
+        from depwake.reach import collect
+        with tempfile.TemporaryDirectory() as t:
+            found = collect(self._proj(Path(t)))
+            self.assertEqual(found["pypi"].get("yaml"), 1)
+            self.assertEqual(found["pypi"].get("dateutil"), 1)
+            self.assertEqual(found["npm"].get("lodash"), 1)
+            self.assertEqual(found["npm"].get("axios"), 1)
+            self.assertNotIn("./local", found["npm"])
+
+    def test_lookup_alias(self):
+        from depwake.reach import lookup
+        imported = {"pypi": {"yaml": 2}, "npm": {}}
+        ok, ev = lookup("pyyaml", "pypi", imported)
+        self.assertTrue(ok)
+        self.assertIn("yaml", ev)
+        ok, _ = lookup("missing-pkg", "pypi", imported)
+        self.assertFalse(ok)
+        ok, _ = lookup("anything", "pypi", {"pypi": {}, "npm": {}})
+        self.assertIsNone(ok)  # unknown != safe
+
+    def test_lookup_npm_scoped(self):
+        from depwake.reach import collect, lookup
+        with tempfile.TemporaryDirectory() as t:
+            (Path(t) / "a.ts").write_text(
+                "import {x} from '@scope/pkg/sub';\n")
+            found = collect(Path(t))
+            self.assertIn("@scope/pkg", found["npm"])
+            ok, _ = lookup("@scope/pkg", "npm", found)
+            self.assertTrue(ok)
+
+    def test_annotate_marks_advisories(self):
+        from depwake.manifests import Dep
+        from depwake.plan import Plan, annotate_reachability
+        from depwake.registry import Advisory
+        with tempfile.TemporaryDirectory() as t:
+            (Path(t) / "app.py").write_text("import yaml\n")
+            from depwake.plan import Item
+            items = [
+                Item(Dep("pyyaml", "pypi", ">=1", "1.0", "floor"), "2.0",
+                     "", "major", "", [Advisory("GHSA-x", "s", "High", None, "2.0", "")]),
+                Item(Dep("django", "pypi", ">=1", "1.0", "floor"), "2.0",
+                     "", "major", "", [Advisory("GHSA-y", "s", "Low", None, "2.0", "")]),
+            ]
+            plan = Plan(items)
+            annotate_reachability(plan, str(t))
+            self.assertTrue(items[0].reachable)
+            self.assertIn("upgrade first", items[0].note)
+            self.assertFalse(items[1].reachable)
+            self.assertIn("can wait", items[1].note)
+            self.assertTrue(any("reachability:" in n for n in plan.notes))
+
+    def test_json_carries_fields(self):
+        from depwake.manifests import Dep
+        from depwake.plan import Item
+        d = Item(Dep("x", "pypi", "1", "1.0", "pin"), "1.0", "", "same")
+        self.assertIn("reachable", d.to_dict())
+
+
 if __name__ == "__main__":
     unittest.main()

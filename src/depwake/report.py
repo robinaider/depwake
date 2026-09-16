@@ -75,6 +75,13 @@ def format_markdown(plan: Plan, root: str = ".") -> str:
             d = item.dep
             lines.append(f"### {d.name} ({d.ecosystem} {d.current})")
             lines.append("")
+            if item.reachable is True:
+                lines.append(f"_🎯 Reachable — {item.reach_note}._")
+                lines.append("")
+            elif item.reachable is False:
+                lines.append(f"_Not imported in scanned source ({item.reach_note}) — "
+                             "still patch, behind reachable ones._")
+                lines.append("")
             for a in item.advisories:
                 fixed = f"fixed in {a.fixed_in}" if a.fixed_in else "no fix published"
                 lines.append(f"- [{a.id}]({a.url}) — {a.severity} — {fixed}")

@@ -1,5 +1,12 @@
 # Changelog — all notable changes, newest first.
 
+## [Unreleased]
+### Added
+- Advisory reachability (`plan --reach`): stdlib AST/regex import scan flags
+  vulnerable deps as reachable (upgrade first), unreached (can wait), or
+  unknown (dynamic imports invisible — unknown != safe). Flows into text,
+  markdown, and JSON reports; 5 new tests.
+
 ## [0.3.1] — scorecard hardening
 ### Added
 - OpenSSF Scorecard push: SHA-pinned Actions, minimal tokens, injection-free
