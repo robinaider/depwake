@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "depwake"
+version = "0.3.1"
+description = "Wake your sleeping dependencies — risk-grouped upgrade plans, safe auto-bumps, no noise"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+keywords = ["dependencies", "upgrades", "npm", "pypi", "maintenance"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[project.scripts]
+depwake = "depwake.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/robinaider/depwake"
+Issues = "https://github.com/robinaider/depwake/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]

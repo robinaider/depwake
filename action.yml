@@ -1,0 +1,34 @@
+name: depwake
+description: "Wake sleeping dependencies — risk-grouped plan, fail the build on major drift."
+branding:
+  icon: clock
+  color: blue
+
+inputs:
+  path:
+    description: "Project directory to plan."
+    default: "."
+  fail-on:
+    description: "Gate: major, minor, patch, or never."
+    default: "major"
+  no-advisories:
+    description: "Skip OSV advisory lookup (offline-friendly)."
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Install depwake
+      shell: bash
+      run: pip install "${GITHUB_ACTION_PATH}"
+    - name: Plan
+      shell: bash
+      env:
+        # Inputs pass through env, never shell interpolation (injection-safe).
+        DEPWake_PATH: ${{ inputs.path }}
+        DEPWake_FAIL_ON: ${{ inputs.fail-on }}
+        DEPWake_NO_ADV: ${{ inputs.no-advisories }}
+      run: |
+        ARGS=""
+        if [ "$DEPWake_NO_ADV" = "true" ]; then ARGS="$ARGS --no-advisories"; fi
+        depwake plan "$DEPWake_PATH" --fail-on "$DEPWake_FAIL_ON" $ARGS

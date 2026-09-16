@@ -1,0 +1,12 @@
+# Pre-commit hook: fail while major upgrades pend.
+# Usage (after first publish; until then point `rev` at a tag):
+#   - repo: https://github.com/robinaider/depwake
+#     rev: v0.3.1
+#     hooks:
+#       - id: depwake-plan
+- id: depwake-plan
+  name: depwake upgrade plan
+  entry: depwake plan
+  args: [--fail-on, major]
+  language: python
+  pass_filenames: false
